@@ -55,7 +55,7 @@ class ExpiringDict(OrderedDict):
             pass
         return False
 
-    def __getitem__(self, key, with_age=False):
+    def __getitem__(self, key, with_age=False, raw_value=False):
         """ Return the item of the dict.
 
         Raises a KeyError if key is not in the map.
@@ -66,6 +66,8 @@ class ExpiringDict(OrderedDict):
             if item_age > 0:
                 if with_age:
                     return item[0], item_age
+                elif raw_value:
+                    return item
                 else:
                     return item[0]
             else:
@@ -90,8 +92,9 @@ class ExpiringDict(OrderedDict):
     def incr(self, key, value):
         with self.lock:
             try:
-                item = OrderedDict.__getitem__(self, key)
+                item = self.__getitem__(key, raw_value=True)
             except KeyError as e:
+                print 'key error', e
                 return None
 
             try:

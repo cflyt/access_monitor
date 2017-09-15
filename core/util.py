@@ -169,7 +169,7 @@ def alert_sms(key, message):
     send_alarm.sendsms(message, sfg.ALERT_MOBILES)
 
 def alert_weihui(key, message):
-    send_alarm.sendweihui2(message, gid=sfg.WEIHUI_ALARM_TYPE)
+    send_alarm.send_weihui(message, gid=sfg.WEIHUI_ALARM_TYPE)
 
 def alert_mail(key, message):
     send_alarm.send_mail("fdfs monitor 报警", message, sfg.ALERT_EMAILS)
@@ -329,7 +329,7 @@ def alert_response_time_ratio(record, config):
     upstream_response_time = etl_field("upstream_response_time", record)
     upstream_response_length = etl_field("upstream_response_length", record)
 
-    if record["request_method"] != "GET" or \
+    if record.get("request_method", "GET") != "GET" or \
             upstream_response_time < config["response_time_threshold"]:
         return
 
@@ -339,7 +339,6 @@ def alert_response_time_ratio(record, config):
     ratio = int(upstream_response_length / upstream_response_time)
     if float(ratio) >= config["warning_line"]:
         return
-
 
     alert_obj = AlertRuleResponseRatio(
         g_cache_engine,
@@ -357,7 +356,7 @@ def alert_request_time_ratio(record, config):
     request_time = etl_field("request_time", record)
     body_bytes_sent = etl_field("body_bytes_sent", record)
 
-    if record["request_method"] != "GET" or \
+    if record.get("request_method", "GET") != "GET" or \
             request_time < config["request_time_threshold"] or \
             body_bytes_sent > config["body_sent_byte_warning_line"]:
         return
@@ -413,13 +412,15 @@ class AlertRuleBase(object):
         if current is None:
             self.cache_engine.setex(self.alert_keys, 1, self.alert_time_range)
             current = 1
-
+        #for k,v in self.cache_engine.items():
+        #    logging.info(self.cache_engine.get(k, None, True))
         if current > self.alert_threshold:
             # for alert ratio control
             alert_key = "alert_control_%s" % self.alert_keys
-            if alert_key in g_cache_engine:
+            if alert_key in self.cache_engine:
                 return
-            g_cache_engine.setex(alert_key, "cooldown", sfg.ALERT_COOLDOWN_SECONDS)
+            self.cache_engine.setex(alert_key, "cooldown", sfg.ALERT_COOLDOWN_SECONDS)
+            logging.info(self.cache_engine)
 
             self.make_alert_message(current)
             self.alert()
